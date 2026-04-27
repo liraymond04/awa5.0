@@ -44,6 +44,12 @@ fn main() {
                 .num_args(0),
         )
         .arg(
+            Arg::new("awaml")
+                .long("awaml")
+                .help("Parse string as AwaML (compiler scaffold)")
+                .num_args(0),
+        )
+        .arg(
             Arg::new("path")
                 .short('p')
                 .long("path")
@@ -157,6 +163,18 @@ fn main() {
                     interpet_object(object_vec, path);
                 }
             }
+            "awaml" => {
+                let content = fs::read_to_string(input_file).unwrap();
+
+                match compiler::compile_source(&content) {
+                    Ok(_program) => {
+                        eprintln!("AwaML compiler scaffold parsed the source, but lowering/codegen is not implemented yet.");
+                    }
+                    Err(err) => {
+                        eprintln!("AwaML compile error: {err:?}");
+                    }
+                }
+            }
             "o" => match read_binary_file(input_file) {
                 Ok(binary_data) => {
                     if matches.contains_id("output") {
@@ -206,8 +224,14 @@ fn main() {
             std::process::exit(1);
         }
 
-        if !matches.get_flag("awasm") && !matches.get_flag("awa") {
-            eprintln!("Warning: Neither 'awasm' and 'awa' flags are given. Please provide at least one.\n");
+        if matches.get_flag("awaml") && (matches.get_flag("awasm") || matches.get_flag("awa")) {
+            eprintln!("Warning: 'awaml' cannot be combined with 'awasm' or 'awa'. Please provide only one.\n");
+            cmd.print_help().unwrap();
+            std::process::exit(1);
+        }
+
+        if !matches.get_flag("awasm") && !matches.get_flag("awa") && !matches.get_flag("awaml") {
+            eprintln!("Warning: Neither 'awasm', 'awa', nor 'awaml' flags are given. Please provide at least one.\n");
             cmd.print_help().unwrap();
             std::process::exit(1);
         }
@@ -283,6 +307,17 @@ fn main() {
                 }
             } else {
                 interpet_object(object_vec, path);
+            }
+        }
+
+        if matches.get_flag("awaml") {
+            match compiler::compile_source(&input_string) {
+                Ok(_program) => {
+                    eprintln!("AwaML compiler scaffold parsed the source, but lowering/codegen is not implemented yet.");
+                }
+                Err(err) => {
+                    eprintln!("AwaML compile error: {err:?}");
+                }
             }
         }
     }

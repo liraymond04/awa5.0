@@ -6,6 +6,21 @@ Runs as an AWA5.0 interpreter for Awatisms with file extension `.awasm` and Awat
 
 Can also run as an assembler for Awatisms and Awatalk to object files, and assembled object files with extension `.o` can be run by the interpreter
 
+The planned metalanguage for this project is named AwaML, and source files use the `.awaml` extension.
+
+## AwaML docs
+
+- [docs/awaml-grammar.md](docs/awaml-grammar.md)
+- [docs/awaml-extern.md](docs/awaml-extern.md)
+- [docs/awaml-ir.md](docs/awaml-ir.md)
+
+## FFI ABI Reference
+
+For `lib` call frame layout, typed argument tags, byte ordering, and C binding expectations, see:
+
+- [docs/ffi-abi.md](docs/ffi-abi.md)
+- [docs/ffi-examples.md](docs/ffi-examples.md)
+
 ## Installation
 
 To install or build from source, you will need to have `rust` or `rustup` installed
@@ -59,6 +74,8 @@ $ emrun index.html # opens the web build on localhost:6931, which can be opened 
 
 ## Usage
 
+AwaML source files use the `.awaml` extension. The CLI includes an `--awaml` string mode for the compiler scaffold.
+
 ```
 Usage: awa5_rs [OPTIONS] [input]
 
@@ -70,8 +87,13 @@ Options:
   -s, --string <string>  String to interpret or convert
       --awasm            Parse string as awasm
       --awa              Parse string as awatalk
+      --awaml            Parse string as AwaML (compiler scaffold)
   -p, --path <path>      Search paths separated by ';' for shared libraries
   -i, --include <include>  Include paths separated by ';' for source files
   -h, --help             Print help
   -V, --version          Print version
 ```
+
+### AwaML status
+
+AwaML is scaffolded in the codebase and can be parsed at a stub level, but lowering and code generation are not implemented yet.

@@ -1,4 +1,5 @@
 pub mod assembler;
+pub mod compiler;
 pub mod dynlib;
 pub mod interpreter;
 pub mod parser;
@@ -7,6 +8,7 @@ pub mod parser;
 mod awa5_raylib;
 
 pub use assembler::*;
+pub use compiler::*;
 pub use dynlib::*;
 pub use interpreter::*;
 pub use parser::*;
@@ -124,6 +126,7 @@ pub fn detect_file_format(filename: &str) -> &str {
     match extension {
         "awasm" => return "awasm",
         "awa" => return "awa",
+        "awaml" => return "awaml",
         "o" => return "o",
         _ => {}
     }
