@@ -35,6 +35,8 @@ Type
   | U8
   | Bytes
   | Unit
+
+Source-level AwaML names map to these machine-oriented IR names (for example: `int` -> `I32`, `float` -> `F32`).
 ```
 
 ## 3) Extern signature model

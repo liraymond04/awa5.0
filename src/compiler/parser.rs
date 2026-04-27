@@ -32,15 +32,13 @@ pub fn parse_item(_source: &str) -> ParseResult<AstItem> {
 
 pub fn parse_type_ref(name: &str) -> ParseResult<TypeRef> {
     Ok(match name {
-        "i32" => TypeRef::I32,
-        "f32" => TypeRef::F32,
+        "int" | "i32" => TypeRef::Int,
+        "float" | "f32" => TypeRef::Float,
         "bool" => TypeRef::Bool,
         "char" => TypeRef::Char,
-        "achar" => TypeRef::AChar,
-        "cstr" => TypeRef::CStr,
-        "acstr" => TypeRef::ACStr,
-        "s32" => TypeRef::S32,
-        "u8" => TypeRef::U8,
+        "string" | "cstr" => TypeRef::String,
+        "awachar" | "achar" => TypeRef::AwaChar,
+        "awastring" | "acstr" => TypeRef::AwaString,
         "bytes" => TypeRef::Bytes,
         "unit" => TypeRef::Unit,
         other => TypeRef::Named(other.to_string()),

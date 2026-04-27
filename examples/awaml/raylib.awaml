@@ -1,0 +1,90 @@
+(* raylib.awaml *)
+(*
+   AwaML scaffold example mirroring examples/awasm/raylib.awasm.
+
+   Flow mirrored:
+   - initwindow 800 450 "AWA5.0 Raylib"
+   - settargetfps 60
+   - loop:
+     BeginDrawing
+     clearbackground 0 0 0
+     drawtext ...
+     key updates (ESC, D, A, S, W)
+     drawcircle x y 50.0 255 0 0
+     EndDrawing
+
+   This is syntax-level scaffolding only; compiler/lowering is still stubbed.
+*)
+
+
+type key = KEY_W | KEY_A | KEY_S | KEY_D | KEY_ESCAPE
+
+module type RAYLIB_SIG = sig
+  val initwindow : int -> int -> string -> unit;
+  val settargetfps : int -> unit;
+  val begin_drawing : unit -> unit;
+  val clearbackground : int -> int -> int -> unit;
+  val drawtext : string -> int -> int -> int -> int -> int -> int -> unit;
+  val iskeydown : key -> bool;
+  val drawcircle : int -> int -> float -> int -> int -> int -> unit;
+  val end_drawing : unit -> unit;
+end;;
+
+
+module Raylib = struct
+  external initwindow : int -> int -> string -> unit = "initwindow";
+  external settargetfps : int -> unit = "settargetfps";
+  external begin_drawing : unit -> unit = "BeginDrawing";
+  external clearbackground : int -> int -> int -> unit = "clearbackground";
+  external drawtext : string -> int -> int -> int -> int -> int -> int -> unit = "drawtext";
+  external iskeydown_raw : int -> bool = "iskeydown";
+  external drawcircle : int -> int -> float -> int -> int -> int -> unit = "drawcircle";
+  external end_drawing : unit -> unit = "EndDrawing";
+
+  let keycode_of_key = function
+    | KEY_W -> 87
+    | KEY_A -> 65
+    | KEY_S -> 83
+    | KEY_D -> 68
+    | KEY_ESCAPE -> 256
+
+  let iskeydown (k : key) : bool = iskeydown_raw (keycode_of_key k)
+end;;
+
+
+module MakeApp = functor (R : RAYLIB_SIG) -> struct
+  let step x y =
+    let x1 = if R.iskeydown KEY_D then x + 10 else x in
+    let x2 = if R.iskeydown KEY_A then x1 - 10 else x1 in
+    let y1 = if R.iskeydown KEY_S then y + 10 else y in
+    let y2 = if R.iskeydown KEY_W then y1 - 10 else y1 in
+    (x2, y2);;
+
+  let rec loop x y =
+    if R.iskeydown KEY_ESCAPE then
+      ()
+    else
+      let () = R.begin_drawing () in
+      let () = R.clearbackground 0 0 0 in
+      let () =
+        R.drawtext
+          "Congrats! You created your first window!"
+          190
+          200
+          20
+          200
+          200
+          200
+      in
+      let (x2, y2) = step x y in
+      let () = R.drawcircle x2 y2 50.0 255 0 0 in
+      let () = R.end_drawing () in
+      loop x2 y2;;
+
+  let main () =
+    let () = R.initwindow 800 450 "AWA5.0 Raylib" in
+    let () = R.settargetfps 60 in
+    loop 0 1;;
+end;;
+
+include MakeApp(Raylib);;

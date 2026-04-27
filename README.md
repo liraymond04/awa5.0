@@ -14,6 +14,12 @@ The planned metalanguage for this project is named AwaML, and source files use t
 - [docs/awaml-extern.md](docs/awaml-extern.md)
 - [docs/awaml-ir.md](docs/awaml-ir.md)
 
+## AwaML examples
+
+- [examples/awaml/hello_world.awaml](examples/awaml/hello_world.awaml)
+- [examples/awaml/libfoo.awaml](examples/awaml/libfoo.awaml)
+- [examples/awaml/raylib.awaml](examples/awaml/raylib.awaml)
+
 ## FFI ABI Reference
 
 For `lib` call frame layout, typed argument tags, byte ordering, and C binding expectations, see:

@@ -1,6 +1,6 @@
-# AwaML `extern` Declaration Draft
+# AwaML `external` Declaration Draft
 
-This document proposes a minimal `extern` syntax for AwaML, a human-friendly language that compiles to AWASM `lib` calls.
+This document proposes a minimal OCaml-style `external` syntax for AwaML, a human-friendly language that compiles to AWASM `lib` calls.
 
 AwaML files use the `.awaml` extension.
 
@@ -19,37 +19,47 @@ For typed/lowered compiler node shapes, see [awaml-ir.md](awaml-ir.md).
 ## 2) Core syntax (draft)
 
 ```text
-extern fn <local_name>(<params...>) -> <ret_type> = "<symbol_name>";
+external <name> : <type_expr> = "<symbol_name>";
+```
+
+Labeled and optional arguments may be written in OCaml style:
+
+```text
+external draw_text : ~msg:string -> ~x:int -> ~y:int -> unit = "drawtext";
+external get_title : ?default:string -> string = "get_title";
 ```
 
 Examples:
 
 ```text
-extern fn init_window(width: i32, height: i32, title: cstr) -> unit = "initwindow";
-extern fn is_key_down(key: i32) -> u8 = "iskeydown";
-extern fn add_float(a: f32, b: f32) -> f32 = "addfloat";
+external init_window : int -> int -> string -> unit = "initwindow";
+external is_key_down : int -> bool = "iskeydown";
+external add_float : float -> float -> float = "addfloat";
+external print_text : ~msg:string -> unit = "print_text";
+external lookup_title : string -> string option = "lookup_title";
+external parse_value : string -> (int, string) result = "parse_value";
 ```
 
 ## 3) FFI scalar and string types
 
 Recommended source-level types:
 
-- `i32` -> ABI tag `0x0` (4-byte LE)
-- `f32` -> ABI tag `0x0` (4-byte LE)
-- `achar` (AWA-SCII char) -> ABI tag `0x1`
+- `int` -> 32-bit signed integer, lowered via the `i32` double-bubble path
+- `float` -> 32-bit float, lowered via the `f32` double-bubble path
+- `bool` -> one-byte runtime result, typically decoded from `iskeydown`
+- `awachar` (AWA-SCII char) -> ABI tag `0x1`
 - `char` (ASCII char) -> ABI tag `0x2`
-- `acstr` (AWA-SCII string) -> ABI tag `0x3`
-- `cstr` (ASCII string) -> ABI tag `0x4`
-- `s32` (simple bubble i32) -> ABI tag `0x5`
-- `unit` -> no expected return bytes
+- `awastring` (AWA-SCII string) -> ABI tag `0x3`
+- `string` (ASCII string) -> ABI tag `0x4`
 - `bytes` -> raw return bytes
+- `unit` -> no expected return bytes
 
 ## 4) Optional ABI override annotations
 
 If you need explicit control:
 
 ```text
-extern fn foo(x: i32 @[tag=0x0], name: cstr @[tag=0x4]) -> bytes = "foo";
+external foo : int -> string -> bytes = "foo";
 ```
 
 Compiler rule: if annotation is present and disagrees with default mapping, emit error.
@@ -57,8 +67,8 @@ Compiler rule: if annotation is present and disagrees with default mapping, emit
 ## 5) Call syntax (draft)
 
 ```text
-let ok: u8 = is_key_down(256);
-init_window(800, 450, "AWA5.0 Raylib");
+let ok = is_key_down 256;
+init_window 800 450 "AWA5.0 Raylib";
 ```
 
 Codegen must lower calls into canonical AWASM frame shape:
@@ -71,16 +81,16 @@ Codegen must lower calls into canonical AWASM frame shape:
 Given:
 
 ```text
-extern fn draw_text(msg: cstr, x: i32, y: i32, size: i32, r: i32, g: i32, b: i32) -> unit = "drawtext";
-draw_text("Hello", 190, 200, 20, 200, 200, 200);
+external draw_text : string -> int -> int -> int -> int -> int -> int -> unit = "drawtext";
+draw_text "Hello" 190 200 20 200 200 200;
 ```
 
 Lowering steps:
 
 1. Emit function symbol bubble from "drawtext".
 2. Emit each typed arg using typed macro-equivalent lowering:
-   - `cstr` -> tag `0x4`
-   - each `i32` -> tag `0x0`
+   - `string` -> tag `0x4`
+   - each `int` -> tag `0x0`
 3. Pack args with `srn 7`.
 4. Pack call frame with `srn 2`.
 5. Emit `lib`.
@@ -90,8 +100,8 @@ Lowering steps:
 Suggested explicit decode forms:
 
 ```text
-let key: u8 = is_key_down(256) |> decode_u8;
-let sum: f32 = add_float(1.0, 2.0) |> decode_f32;
+let key = is_key_down 256;
+let sum = add_float 1.0 2.0;
 ```
 
 Rules:
@@ -105,8 +115,8 @@ Rules:
 - Validate symbol name non-empty.
 - Validate argument count and declared order at each call.
 - Reject implicit narrowing (for example `i64 -> i32`) without explicit cast.
-- Validate AWA-SCII literals for `achar` / `acstr`.
-- Reject interior NUL in `cstr`/`acstr` unless raw-byte mode is used.
+- Validate AWA-SCII literals for `awachar` / `awastring`.
+- Reject interior NUL in `string`/`awastring` unless raw-byte mode is used.
 - Require explicit return decoder for non-`unit`, non-`bytes` externs.
 
 ## 9) Suggested diagnostics
@@ -122,7 +132,7 @@ Rules:
 
 ## 10) Minimal implementation plan
 
-1. Parse `extern fn` declarations into an extern table.
+1. Parse `external` declarations into an extern table.
 2. Type-check call sites against extern signatures.
 3. Lower typed args into ABI tags + payload bubbles.
 4. Emit canonical frame and `lib` instruction.

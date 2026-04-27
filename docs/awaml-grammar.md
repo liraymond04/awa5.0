@@ -1,4 +1,4 @@
-# AwaML MVP Grammar (EBNF Draft)
+# AwaML MVP Grammar (OCaml-style EBNF Draft)
 
 This grammar is a minimal, implementation-oriented draft for AwaML, the source language that compiles to AWASM + `lib` calls.
 
@@ -27,7 +27,8 @@ string_lit    = "\"", { ? char or escape ? }, "\"" ;
 awachar_lit   = "a", char_lit ;
 awastring_lit = "a", string_lit ;
 
-comment       = "//", { ? any char except newline ? } ;
+comment       = "(*", { ? any char ? }, "*)"
+              | "//", { ? any char except newline ? } ;
 ```
 
 ## 2) Program structure
@@ -35,71 +36,142 @@ comment       = "//", { ? any char except newline ? } ;
 ```ebnf
 program       = { item } ;
 
-item          = extern_decl
-              | fn_decl
-              | let_decl
+item          = type_decl
+              | external_decl
+              | module_decl
+              | module_type_decl
+              | include_stmt
+              | let_item
               | stmt ;
+
+top_sep       = ";;" ;
 ```
 
-## 3) Extern declarations
+## 3) Type declarations
 
 ```ebnf
-extern_decl   = "extern", "fn", ident, "(", [param_list], ")",
-                "->", type_ref, "=", string_lit, ";" ;
+type_decl     = "type", ident, [type_params], "=", type_def, ";" ;
 
-param_list    = param, { ",", param } ;
-param         = ident, ":", type_ref, [abi_attr] ;
+type_params   = { type_param } ;
+type_param    = "'", ident ;
 
-abi_attr      = "@[", "tag", "=", hex_byte, "]" ;
-hex_byte      = "0x", hex_digit, hex_digit ;
+type_def      = variant_type
+              | record_type
+              | poly_variant_type
+              | alias_type ;
+
+alias_type    = type_expr ;
+
+variant_type  = constructor, { "|", constructor } ;
+constructor   = ident, ["of", type_expr] ;
+
+poly_variant_type = "[", "<", poly_variant_row, { "|", poly_variant_row }, ["|", ".."], ">", "]" ;
+poly_variant_row  = "`", ident, ["of", type_expr] ;
+
+module_decl   = "module", ident, "=", module_expr, ";" ;
+module_expr   = ident
+              | "struct", { item }, "end"
+              | "functor", "(", ident, ":", module_sig, ")", "->", module_expr
+              | module_expr, "(", module_expr, ")"
+              | "(", "module", ident, ")" ;
+
+module_type_decl = "module", "type", ident, "=", module_sig, ";" ;
+
+module_sig    = ident
+              | "sig", { sig_item }, "end" ;
+
+sig_item      = "val", ident, ":", type_expr, ";"
+              | "type", ident, [type_params], ["=", type_def], ";" ;
+
+include_stmt  = "include", module_expr, ";" ;
+
+record_type   = "{", record_field, { ";", record_field }, [";"], "}" ;
+record_field  = ident, ":", type_expr ;
 ```
 
-## 4) Function declarations (pure-first core)
+## 4) External declarations
 
 ```ebnf
-fn_decl       = "fn", ident, "(", [param_list], ")", "->", type_ref, block ;
+external_decl = "external", ident, ":", type_expr, "=", string_lit, ";" ;
 
-block         = "{", { stmt }, [expr], "}" ;
+label         = "~", ident ;
+optional_label = "?", ident ;
+
+arg           = [label | optional_label], expr ;
+
+param         = [label | optional_label], pattern ;
 ```
 
-## 5) Statements
+## 5) Let-bindings and functions
 
 ```ebnf
-stmt          = let_decl
-              | assign_stmt
-              | if_stmt
-              | while_stmt
-              | return_stmt
-              | expr_stmt ;
+let_item      = "let", ["rec"], binding, { "and", binding }, [top_sep] ;
 
-let_decl      = "let", ident, [":", type_ref], "=", expr, ";" ;
-assign_stmt   = ident, "=", expr, ";" ;
+let_in_expr   = "let", ["rec"], binding, { "and", binding }, "in", expr ;
 
-if_stmt       = "if", expr, block, ["else", block] ;
-while_stmt    = "while", expr, block ;
+local_open    = "let", "open", ident, "in", expr ;
 
-return_stmt   = "return", [expr], ";" ;
-expr_stmt     = expr, ";" ;
+binding       = param, { param }, "=", expr ;
+
+pattern       = "_"
+              | ident
+              | int_lit
+              | char_lit
+              | string_lit
+              | constructor_pattern
+              | list_pattern
+              | tuple_pattern
+              | as_pattern
+              | "(", [pattern, { ",", pattern }], ")" ;
+
+constructor_pattern = ident, [pattern] ;
+list_pattern       = "[", [pattern, { ";", pattern }], "]" ;
+tuple_pattern      = "(", pattern, ",", pattern, { ",", pattern }, ")" ;
+as_pattern         = pattern, "as", ident ;
+
+block         = expr ;
 ```
 
-## 6) Expressions
+## 6) Core statements
 
 ```ebnf
-expr          = pipe_expr ;
+stmt          = expr ;
 
-pipe_expr     = logic_or_expr, { "|>", ident } ;
+expr_stmt     = expr ;
+```
+
+## 7) Expressions
+
+```ebnf
+expr          = let_in_expr
+              | local_open
+              | if_expr
+              | match_expr
+              | fun_expr
+              | function_expr
+              | cons_expr ;
+
+if_expr       = "if", expr, "then", expr, "else", expr ;
+
+match_expr    = "match", expr, "with", match_case, { "|", match_case } ;
+match_case    = pattern, ["when", expr], "->", expr ;
+
+fun_expr      = "fun", param, { param }, "->", expr ;
+function_expr = "function", match_case, { "|", match_case } ;
 
 logic_or_expr = logic_and_expr, { "||", logic_and_expr } ;
 logic_and_expr= equality_expr, { "&&", equality_expr } ;
 equality_expr = compare_expr, { ("==" | "!="), compare_expr } ;
 compare_expr  = add_expr, { ("<" | "<=" | ">" | ">="), add_expr } ;
 add_expr      = mul_expr, { ("+" | "-"), mul_expr } ;
-mul_expr      = unary_expr, { ("*" | "/"), unary_expr } ;
+mul_expr      = prefix_expr, { ("*" | "/"), prefix_expr } ;
 
-unary_expr    = ["!" | "-"], postfix_expr ;
+prefix_expr   = ["-" | "!"], postfix_expr ;
 
-postfix_expr  = primary_expr, { call_suffix } ;
-call_suffix   = "(", [arg_list], ")" ;
+cons_expr     = logic_or_expr, { "::", logic_or_expr } ;
+
+postfix_expr  = primary_expr, { application } ;
+application   = [arg_list] ;
 
 arg_list      = expr, { ",", expr } ;
 
@@ -110,48 +182,96 @@ primary_expr  = ident
               | awachar_lit
               | string_lit
               | awastring_lit
-              | "(", expr, ")" ;
+              | unit_lit
+              | list_expr
+              | tuple_expr
+              | "(", expr, ")"
+              | labeled_record_expr
+              | record_update_expr
+              | poly_variant_expr ;
+
+unit_lit      = "()" ;
+list_expr     = "[", [expr, { ";", expr }], "]" ;
+tuple_expr    = "(", expr, ",", expr, { ",", expr }, ")" ;
+labeled_record_expr = "{", [field_value, { ";", field_value }], [";"], "}" ;
+field_value   = ident, "=", expr ;
+record_update_expr = "{", expr, "with", field_value, { ";", field_value }, "}" ;
+poly_variant_expr = "`", ident, [expr] ;
 ```
 
-## 7) Type system (MVP)
+## 8) Type system (MVP)
 
 ```ebnf
-type_ref      = "i32"
-              | "f32"
+type_expr     = type_arrow ;
+
+type_arrow    = type_cons, { "->", type_cons } ;
+
+type_cons     = type_simple, { type_postfix } ;
+
+type_postfix  = "list"
+              | "option"
+              | "result" ;
+
+type_simple   = type_atom
+              | "(", type_expr, ")"
+              | "(", type_expr, ",", type_expr, { ",", type_expr }, ")" ;
+
+type_atom     = "int"
+              | "float"
               | "bool"
               | "char"
-              | "achar"
-              | "cstr"
-              | "acstr"
-              | "s32"
-              | "u8"
+              | "string"
+              | "awachar"
+              | "awastring"
               | "bytes"
-              | "unit" ;
+              | "unit"
+              | ident
+              | poly_type ;
+
+poly_type     = "[", "<", poly_row, { "|", poly_row }, ["|", ".."], ">", "]" ;
+poly_row      = "`", ident, ["of", type_expr] ;
 ```
 
-## 8) Reserved keywords
+## 9) Reserved keywords
 
 ```text
-extern fn let if else while return true false
-i32 f32 bool char achar cstr acstr s32 u8 bytes unit
+type external let rec and in fun match with if then else
+true false int float bool char string awachar awastring bytes unit
+list
+function as when
+module struct end open with include sig val functor
+;;
 ```
 
-## 9) Parsing + lowering notes
+## 10) Parsing + lowering notes
 
-- `extern fn` signatures should populate an extern table before type-checking call sites.
-- Pipeline form `expr |> decode_u8` is intentionally grammar-level so return decoding is explicit.
-- `achar` / `acstr` literals require AWA-SCII validation during semantic analysis.
+- `external` declarations should populate an extern table before type-checking call sites.
+- Function application is whitespace-based, OCaml-style.
+- Top-level items may optionally be terminated with `;;` for familiarity.
+- `awachar` / `awastring` values require AWA-SCII validation during semantic analysis.
 - Calls that target extern declarations lower to canonical `lib` frame shape described in [ffi-abi.md](ffi-abi.md).
 
-## 10) Example accepted snippet
+## 11) Example accepted snippet
 
 ```text
-extern fn is_key_down(key: i32) -> u8 = "iskeydown";
-extern fn init_window(width: i32, height: i32, title: cstr) -> unit = "initwindow";
+type maybe_int =
+  | None
+  | Some of int;
 
-fn main() -> unit {
-  init_window(800, 450, "AWA5.0 Raylib");
-  let down: u8 = is_key_down(256) |> decode_u8;
-  return;
-}
+module type TEXT_SIG = sig
+  val print_text : string -> unit;
+end;
+
+module Text = struct
+  external print_text : string -> unit = "print_text";
+end;
+
+module MakeGreeter = functor (T : TEXT_SIG) -> struct
+  let greet ~msg = T.print_text msg;
+end;
+
+include MakeGreeter(Text);
+
+let main () =
+  greet ~msg:"Hello, AwaML!"
 ```

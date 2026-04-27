@@ -1,0 +1,33 @@
+(* hello_world.awaml *)
+(*
+   AwaML scaffold example
+   This file demonstrates the planned source syntax only.
+*)
+
+type 'a box = 'a list;;
+
+module type TEXT_SIG = sig
+   val print_text : string -> unit;
+end;;
+
+module Text = struct
+   external print_text : string -> unit = "print_text";;
+end;;
+
+module MakeGreeter = functor (T : TEXT_SIG) -> struct
+   let greet ~msg =
+      let open T in
+      print_text msg;;
+end;;
+
+include MakeGreeter(Text);;
+
+let main () =
+   let payload = ["Hello, AwaML!"] in
+   match payload with
+   | [msg] -> greet ~msg
+   | _ -> ();;
+
+let classify = function
+  | true as b when b = true -> 1
+  | false -> 0;;

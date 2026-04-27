@@ -1,0 +1,23 @@
+(* libfoo.awaml *)
+(*
+   AwaML scaffold example mirroring examples/awasm/libfoo.awasm.
+
+   AWASM order mirrored here:
+   1) !_i32 4
+   2) !_str a"Hello World!"
+   3) !_str "foo"
+   4) !_f32 4.2
+   5) !_chr a'W'
+   6) !_chr 'a'
+*)
+
+external foo : int -> awastring -> string -> float -> awachar -> char -> bytes = "foo";;
+
+let call_foo () =
+  let n = 4 in
+  let awa_msg = a"Hello World!" in
+  let ascii_msg = "foo" in
+  let f = 4.2 in
+  let awa_ch = a'W' in
+  let ascii_ch = 'a' in
+  foo n awa_msg ascii_msg f awa_ch ascii_ch;;
