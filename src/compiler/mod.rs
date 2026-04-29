@@ -743,3 +743,126 @@ fn render_type(ty: &Type) -> String {
 		Type::Named(name) => name.clone(),
 	}
 }
+
+// AWASM Code Generation
+use crate::Awatism;
+
+pub fn compile_to_awasm(source: &str) -> Result<Vec<Awatism>, CompileError> {
+	let program = compile_to_core(source)?;
+	codegen_program(&program)
+}
+
+fn codegen_program(program: &CoreProgram) -> Result<Vec<Awatism>, CompileError> {
+	let mut instructions = Vec::new();
+	
+	// For each function, generate code
+	for func in &program.functions {
+		codegen_function(func, &mut instructions)?;
+	}
+	
+	// Terminate
+	instructions.push(Awatism::Trm);
+	
+	Ok(instructions)
+}
+
+fn codegen_function(func: &CoreFunc, instructions: &mut Vec<Awatism>) -> Result<(), CompileError> {
+	// For now, generate simple code for each block
+	// In a real implementation, we'd need to handle control flow, stack management, etc.
+	
+	// Generate a label for the function (if needed)
+	// For functions with no parameters, push a nop and return
+	// For functions with parameters, they'd be on the stack already
+	
+	for block in &func.blocks {
+		codegen_block(block, instructions)?;
+	}
+	
+	// Return from function
+	instructions.push(Awatism::Ret);
+	
+	Ok(())
+}
+
+fn codegen_block(block: &CoreBlock, instructions: &mut Vec<Awatism>) -> Result<(), CompileError> {
+	// Generate code for each statement in the block
+	for stmt in &block.stmts {
+		codegen_statement(stmt, instructions)?;
+	}
+	
+	// Handle the terminator
+	match &block.term {
+		CoreTerminator::Return(None) => {
+			// Return with nothing on stack - push unit
+			instructions.push(Awatism::Nop);
+		}
+		CoreTerminator::Return(Some(_local)) => {
+			// Value to return should already be on the stack (local is already there)
+		}
+		CoreTerminator::Goto(_bb) => {
+			// Jump to another block (would need proper label handling)
+			instructions.push(Awatism::Nop);
+		}
+		CoreTerminator::If { cond: _, then_bb: _, else_bb: _ } => {
+			// Conditional jump
+			instructions.push(Awatism::Nop);
+		}
+	}
+	
+	Ok(())
+}
+
+fn codegen_statement(stmt: &CoreStmt, instructions: &mut Vec<Awatism>) -> Result<(), CompileError> {
+	match stmt {
+		CoreStmt::Let { dst: _, value } => {
+			codegen_value(value, instructions)?;
+			// Value is now on the stack
+		}
+		CoreStmt::Assign { dst: _, value } => {
+			codegen_value(value, instructions)?;
+			// Value is assigned to dst
+		}
+		CoreStmt::ExternCall { dst: _, call } => {
+			// Generate code for external call
+			_ = call;
+			instructions.push(Awatism::Lib);
+		}
+		CoreStmt::ModuleDecl { .. } => {
+			// Module declarations don't generate code, they're metadata
+		}
+		CoreStmt::IncludeModule { .. } => {
+			// Include statements don't generate code
+		}
+	}
+	Ok(())
+}
+
+fn codegen_value(value: &CoreValue, instructions: &mut Vec<Awatism>) -> Result<(), CompileError> {
+	match &value.kind {
+		CoreValueKind::Local(_id) => {
+			// Load from local
+			instructions.push(Awatism::Nop);
+		}
+		CoreValueKind::ConstInt(n) => {
+			// Push an integer onto the stack
+			// For constants, we'd need a proper constant loading mechanism
+			// For now, emit a marker
+			if *n == 0 {
+				instructions.push(Awatism::Nop);
+			} else {
+				instructions.push(Awatism::Nop);
+			}
+		}
+		CoreValueKind::ConstBool(_b) => {
+			instructions.push(Awatism::Nop);
+		}
+		CoreValueKind::ConstString(_s) => {
+			instructions.push(Awatism::Nop);
+		}
+		CoreValueKind::ModulePath(_path) => {
+			// Module reference
+			instructions.push(Awatism::Nop);
+		}
+	}
+	Ok(())
+}
