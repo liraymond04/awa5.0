@@ -1,0 +1,10 @@
+(* Simple AwaML example *)
+
+external print_int : int -> unit = "print_int";;
+
+let add x y = x + y;;
+
+let main () = 
+  let result = add 5 3 in
+  print_int result;;
+

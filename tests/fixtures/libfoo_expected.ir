@@ -1,0 +1,120 @@
+CoreProgram
+  Func extern_foo() -> Unit
+    Block 0
+      return
+  Func let_call_foo() -> Unit
+    Block 0
+      let %0 = "<Unit>" : unknown
+      return %0
+  Func module___item_Eq() -> Unit
+    Block 0
+      module __item_Eq
+      return
+  Func let_n() -> Unit
+    Block 0
+      let %0 = 4 : I32
+      return %0
+  Func module_in() -> Unit
+    Block 0
+      module in
+      return
+  Func let_awa_msg() -> Unit
+    Block 0
+      let %0 = %97 : unknown
+      return %0
+  Func module___item_StringLit("Hello World!")() -> Unit
+    Block 0
+      module __item_StringLit("Hello World!")
+      return
+  Func module_in() -> Unit
+    Block 0
+      module in
+      return
+  Func let_ascii_msg() -> Unit
+    Block 0
+      let %0 = "foo" : StrAscii
+      return %0
+  Func module_in() -> Unit
+    Block 0
+      module in
+      return
+  Func let_f() -> Unit
+    Block 0
+      let %0 = 4 : I32
+      return %0
+  Func module___item_Dot() -> Unit
+    Block 0
+      module __item_Dot
+      return
+  Func module___item_Number("2")() -> Unit
+    Block 0
+      module __item_Number("2")
+      return
+  Func module_in() -> Unit
+    Block 0
+      module in
+      return
+  Func let_awa_ch() -> Unit
+    Block 0
+      let %0 = %97 : unknown
+      return %0
+  Func module_'() -> Unit
+    Block 0
+      module '
+      return
+  Func module_W() -> Unit
+    Block 0
+      module W
+      return
+  Func module_'() -> Unit
+    Block 0
+      module '
+      return
+  Func module_in() -> Unit
+    Block 0
+      module in
+      return
+  Func let_ascii_ch() -> Unit
+    Block 0
+      let %0 = %39 : unknown
+      return %0
+  Func module_a() -> Unit
+    Block 0
+      module a
+      return
+  Func module_'() -> Unit
+    Block 0
+      module '
+      return
+  Func module_in() -> Unit
+    Block 0
+      module in
+      return
+  Func module_foo() -> Unit
+    Block 0
+      module foo
+      return
+  Func module_n() -> Unit
+    Block 0
+      module n
+      return
+  Func module_awa_msg() -> Unit
+    Block 0
+      module awa_msg
+      return
+  Func module_ascii_msg() -> Unit
+    Block 0
+      module ascii_msg
+      return
+  Func module_f() -> Unit
+    Block 0
+      module f
+      return
+  Func module_awa_ch() -> Unit
+    Block 0
+      module awa_ch
+      return
+  Func module_ascii_ch() -> Unit
+    Block 0
+      module ascii_ch
+      return

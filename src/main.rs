@@ -166,9 +166,14 @@ fn main() {
             "awaml" => {
                 let content = fs::read_to_string(input_file).unwrap();
 
-                match compiler::compile_source(&content) {
-                    Ok(_program) => {
-                        eprintln!("AwaML compiler scaffold parsed the source, but lowering/codegen is not implemented yet.");
+                match compiler::compile_and_render(&content) {
+                    Ok(rendered) => {
+                        if matches.contains_id("output") {
+                            let output_file = matches.get_one::<String>("output").unwrap();
+                            let _ = write_string_file(output_file, &rendered);
+                        } else {
+                            println!("{}", rendered);
+                        }
                     }
                     Err(err) => {
                         eprintln!("AwaML compile error: {err:?}");
@@ -311,9 +316,14 @@ fn main() {
         }
 
         if matches.get_flag("awaml") {
-            match compiler::compile_source(&input_string) {
-                Ok(_program) => {
-                    eprintln!("AwaML compiler scaffold parsed the source, but lowering/codegen is not implemented yet.");
+            match compiler::compile_and_render(&input_string) {
+                Ok(rendered) => {
+                    if matches.contains_id("output") {
+                        let output_file = matches.get_one::<String>("output").unwrap();
+                        let _ = write_string_file(output_file, &rendered);
+                    } else {
+                        println!("{}", rendered);
+                    }
                 }
                 Err(err) => {
                     eprintln!("AwaML compile error: {err:?}");

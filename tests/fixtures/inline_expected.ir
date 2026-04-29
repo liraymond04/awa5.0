@@ -1,0 +1,19 @@
+CoreProgram
+  Func module_M() -> Unit
+    Block 0
+      module M
+      return
+  Func include_Foo() -> Unit
+    Block 0
+      include Foo
+      return
+  Func extern_foo() -> Unit
+    Block 0
+      return
+  Func let_x() -> Unit
+    Block 0
+      let %0 = 1 : I32
+      return %0
+  Func f(%0) -> Unit
+    Block 0
+      return %0

@@ -1,0 +1,60 @@
+CoreProgram
+  Func extern_print_int() -> Unit
+    Block 0
+      return
+  Func let_add() -> Unit
+    Block 0
+      let %0 = %120 : unknown
+      return %0
+  Func module_y() -> Unit
+    Block 0
+      module y
+      return
+  Func module___item_Eq() -> Unit
+    Block 0
+      module __item_Eq
+      return
+  Func module_x() -> Unit
+    Block 0
+      module x
+      return
+  Func module___item_Plus() -> Unit
+    Block 0
+      module __item_Plus
+      return
+  Func module_y() -> Unit
+    Block 0
+      module y
+      return
+  Func let_main() -> Unit
+    Block 0
+      let %0 = "<Unit>" : unknown
+      return %0
+  Func module___item_Eq() -> Unit
+    Block 0
+      module __item_Eq
+      return
+  Func let_result() -> Unit
+    Block 0
+      let %0 = %96417 : unknown
+      return %0
+  Func module___item_Number("5")() -> Unit
+    Block 0
+      module __item_Number("5")
+      return
+  Func module___item_Number("3")() -> Unit
+    Block 0
+      module __item_Number("3")
+      return
+  Func module_in() -> Unit
+    Block 0
+      module in
+      return
+  Func module_print_int() -> Unit
+    Block 0
+      module print_int
+      return
+  Func module_result() -> Unit
+    Block 0
+      module result
+      return
