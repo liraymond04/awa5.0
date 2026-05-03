@@ -108,9 +108,12 @@ pub fn load_libs(lib_paths: &[&str]) -> HashMap<String, Library> {
     let mut libs = HashMap::new();
 
     for path in lib_paths {
-        // println!("{:#?}", path);
-        let lib = unsafe { Library::new(path).unwrap() };
-        libs.insert(path.to_string(), lib);
+        // Loading all candidate shared libraries can fail if some of them have
+        // missing system dependencies (e.g. raylib on a headless machine).
+        // We skip failures so that other libraries (like `libfoo.so`) still work.
+        if let Ok(lib) = unsafe { Library::new(path) } {
+            libs.insert(path.to_string(), lib);
+        }
     }
 
     libs

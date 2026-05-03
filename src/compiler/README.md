@@ -1,165 +1,136 @@
-# AwaML compiler
+# AwaML Compiler
 
-This module contains the parser, AST, IR, and code generation for AwaML, the source language for this project.
+This directory contains the current AwaML frontend and backend pipeline:
+
+- Lexer and parser (`lexer.rs`, `parser.rs`)
+- AST and IR definitions (`ast.rs`, `ir.rs`)
+- Lowering + AWASM codegen (`mod.rs`)
 
 AwaML source files use the `.awaml` extension.
 
-## Compilation Pipeline
+## Current Compiler Pipeline
 
-The compiler implements a complete pipeline from AwaML source to AWASM bytecode:
-
-```
+```text
 AwaML source (.awaml)
-    ↓ parse_program()
-AST (Abstract Syntax Tree)
-    ↓ type_check_program() [stub]
-    ↓ lower_core_program()
-Core-IR (Control-flow IR)
-    ↓ compile_to_awasm()
-AWASM instructions (Awatism)
-    ↓ assembler::make_object_vec()
-Binary object code
-    ↓ interpreter::interpet_object()
-Execution
+  -> parse_program()
+  -> AstProgram
+  -> type_check_program()      (currently stubbed)
+  -> lower_core_program()
+  -> CoreProgram { extern_sigs, functions }
+  -> compile_to_awasm()
+  -> Vec<Awatism>
+  -> compile_to_binary() / compile_and_render_awasm()
 ```
 
-## Public API Functions
+Important details in current behavior:
 
-### Parsing
-- **`parse_program(source: &str) -> Result<AstProgram, ParseError>`** - Parse AwaML source to AST
-- **`parse_item(source: &str) -> Result<AstItem, ParseError>`** - Parse a single item
+- `Vec<Awatism>` is the codegen source of truth.
+- `.awasm` text output can be rendered from the instruction stream via object encoding (`render_awasm_via_object`).
+- Top-level codegen ends with `trm` and avoids unconditional raw `ret` insertion.
+- Extern codegen emits symbol/arg frame structure and `lib` calls with typed tags.
+- Literal parsing preserves `float`, `char`, `awachar` (`a'X'`), and `awastring` (`a"..."`) forms.
 
-### Type Checking (Stub)
-- **`type_check_program(program: &AstProgram) -> Result<(), CompileError>`** - Placeholder for semantic analysis
+## Public API
 
-### Lowering to Core-IR
-- **`compile_to_core(source: &str) -> Result<CoreProgram, CompileError>`** - Full parse + lower to Core-IR
-- **`lower_core_program(program: &AstProgram) -> Result<CoreProgram, CompileError>`** - Convert AST to Core-IR
+### Frontend
 
-### Code Generation
-- **`compile_to_awasm(source: &str) -> Result<Vec<Awatism>, CompileError>`** - Full AwaML → AWASM compilation
-- **`compile_and_render(source: &str) -> Result<String, CompileError>`** - Compile and render IR as text (for debugging)
+- `parse_program(source) -> Result<AstProgram, ParseError>`
+- `compile_to_core(source) -> Result<CoreProgram, CompileError>`
+- `compile_and_render(source) -> Result<String, CompileError>` (Core-IR text)
+
+### Backend
+
+- `compile_to_awasm(source) -> Result<Vec<Awatism>, CompileError>`
+- `render_awasm(instructions) -> String`
+- `render_awasm_via_object(instructions) -> String`
+- `compile_and_render_awasm(source) -> Result<String, CompileError>`
+- `compile_to_binary(source) -> Result<Vec<u8>, CompileError>`
+
+## CLI Usage (AwaML)
+
+### File input mode
+
+```bash
+# Core-IR
+cargo run -- examples/awaml/libfoo.awaml -o out.ir
+
+# AWASM text
+cargo run -- examples/awaml/libfoo.awaml -o out.awasm
+
+# Object file
+cargo run -- examples/awaml/libfoo.awaml -o out.o
+```
+
+### String/stdin mode
+
+`--awaml` string mode now follows the same output extension dispatch as file mode:
+
+- `.ir` -> `compile_and_render`
+- `.awasm` -> `compile_and_render_awasm`
+- `.o` -> `compile_to_binary`
+
+```bash
+cargo run -- --awaml -s "let x = 42;;" -o out.awasm
+cargo run -- --awaml -s "let x = 42;;" -o out.o
+```
 
 ## Testing
 
-### Run All Tests
+Run everything:
+
 ```bash
-cargo test -q
+cargo test
 ```
 
-Test suite includes:
-- **Lexer tests** (2) - Tokenization with OCaml-style comments
-- **Parser tests** (15) - AST structure, expressions, patterns, error handling
-- **Compiler output tests** (7) - Golden tests comparing Core-IR output
-- **AWASM codegen tests** (6) - Bytecode generation validation
-- **End-to-end tests** (3) - Full compilation pipeline verification
+Targeted suites:
 
-### Run Specific Test Suite
 ```bash
-cargo test --test lexer -q
-cargo test --test parser -q
-cargo test --test compiler_output -q
-cargo test --test awasm_codegen -q
-cargo test --test end_to_end -q
+cargo test --test lexer
+cargo test --test parser
+cargo test --test compiler_output
+cargo test --test awasm_codegen
+cargo test --test end_to_end
+cargo test --test cli_awaml
 ```
 
-## Usage Examples
+What the tests cover now:
 
-### Compile AwaML File to Core-IR (Text)
+- Lexer/parser behavior and parse error shapes
+- Core-IR structural output checks
+- AWASM generation and render/object path parity checks
+- Extern ABI codegen shape checks (symbol + typed arg framing + `lib`)
+- End-to-end compile checks including `examples/awaml/raylib.awaml`
+- CLI AwaML consistency between file and string modes
+- Parser coverage for Awa literals and functor-apply include parsing
+
+## Examples
+
+Compiler examples:
+
+- `examples/awaml/simple.awaml`
+- `examples/awaml/libfoo.awaml`
+- `examples/awaml/raylib.awaml`
+
+Run raylib compile path checks:
+
 ```bash
-cargo run --quiet -- examples/awaml/simple.awaml --awaml
+cargo test --test end_to_end test_raylib_example_compiles_to_awasm_and_binary
 ```
 
-Output:
-```
-CoreProgram
-  Func extern_print_int() -> Unit
-    Block 0
-      return
-  Func let_add() -> Unit
-    Block 0
-      let %0 = ... : ...
-      return %0
-  ...
-```
+## Limitations
 
-### Compile and Save Core-IR
-```bash
-cargo run --quiet -- examples/awaml/libfoo.awaml -o output.ir --awaml
-```
+Current known limitations:
 
-### Compile from String
-```bash
-cargo run --quiet -- -s "let x = 42;;" --awaml
-```
+- Type checking is still a stub (`type_check_program`).
+- Lowering/codegen is still partial for full language semantics.
+- Control-flow and expression lowering are scaffolded for coverage, not full optimization.
+- Operator-call lowering (`+`/`-`/comparisons) and minimal `function`/`match` dispatch exist, but the full runtime-correct ABI/value model (stack-aware locals) is still evolving.
+- Extern payload serialization is implemented for core constant cases and still evolving.
+- `module type` signatures are still partially scaffolded even though module/type/functor shapes compile through Core-IR.
 
-### Programmatic Usage
-```rust
-use awa5_rs::compiler::{compile_to_awasm, compile_and_render};
+For ABI/reference docs, see:
 
-// Generate AWASM bytecode
-let bytecode = compile_to_awasm("let x = 42;;")?;
-
-// Render Core-IR for debugging
-let ir_text = compile_and_render("let x = 42;;")?;
-```
-
-## Supported Language Features
-
-### Declarations
-- **Modules** - `module Name = struct ... end;;`
-- **Include** - `include ModuleName;;`
-- **External** - `external name : type = "symbol";;`
-- **Let bindings** - `let x = expr;;`
-- **Functions** - `fn name args = body;;`
-
-### Expressions
-- **Literals** - integers, floats, strings, booleans
-- **Identifiers** - variable references
-- **Binary ops** - `+`, `-`, `*`, `/`, `==`, `!=`, `<`, `>`, `&&`, `||`
-- **If/then/else** - conditional expressions
-- **Match** - pattern matching
-- **Function application**
-- **Parentheses** for grouping
-
-### Types
-- Primitive: `int`, `float`, `bool`, `char`, `string`, `unit`
-- Awa-specific: `awachar`, `awastring`, `bytes`
-- Composite: `list`, `option`, `result`, tuples
-- Function arrows: `int -> string -> unit`
-
-### Comments
-- OCaml-style: `(* ... *)`
-- C-style: `// ...` and `/* ... */`
-
-## Architecture
-
-### Module Structure
-- **`lexer.rs`** - Tokenization with keyword recognition, OCaml comment support
-- **`parser.rs`** - Recursive descent parser with precedence climbing for expressions
-- **`ast.rs`** - Abstract Syntax Tree type definitions
-- **`ir.rs`** - Core-IR and type definitions for intermediate representation
-- **`mod.rs`** - Compilation orchestration and code generation
-
-### Key Types
-- **`AstProgram`** - List of parsed items (modules, functions, etc.)
-- **`CoreProgram`** - List of compiled functions with control flow
-- **`Awatism`** - AWASM bytecode instruction enum
-
-## Known Limitations
-
-1. **Type checking is stubbed** - Uses placeholder types, no real type inference
-2. **Constant loading** - Uses placeholder `Nop` for constant values
-3. **Advanced modules** - Module signatures and functors not yet parsed
-4. **Labeled parameters** - Labeled/optional parameters not yet supported
-5. **Control flow graphs** - Minimal CFG construction, no optimizations
-
-## Future Work
-
-1. Real type inference and checking
-2. Proper constant loading and stack management in codegen
-3. Full module system with signatures
-4. Labeled and optional parameters
-5. Control flow optimization
-6. Error messages with better diagnostics
+- `docs/awaml-ir.md`
+- `docs/awaml-extern.md`
+- `docs/ffi-abi.md`
 

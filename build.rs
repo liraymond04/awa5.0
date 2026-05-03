@@ -1,5 +1,5 @@
 extern crate cmake;
-use cmake::Config;
+// use cmake::Config;
 
 fn main() {
     // let dst = Config::new("lib_wasm").build();

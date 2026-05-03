@@ -3,6 +3,7 @@ pub enum Token {
     Ident(String),
     Number(String),
     StringLit(String),
+    CharLit(String),
     LParen,
     RParen,
     LBrace,
@@ -54,6 +55,7 @@ pub enum Token {
     Else,
     Match,
     With,
+    In,
     When,
     As,
     EOF,
@@ -328,6 +330,15 @@ impl<'a> Lexer<'a> {
                 let lit = raw.trim_end_matches('"').to_string();
                 Token::StringLit(lit)
             }
+            Some('\'') => {
+                // char literal: 'x'
+                self.bump(); // opening '
+                let ch = self.bump().unwrap_or('\0');
+                if self.peek_char() == Some('\'') {
+                    self.bump(); // closing '
+                }
+                Token::CharLit(ch.to_string())
+            }
             Some(ch) if ch.is_ascii_digit() => {
                 let s = self.eat_while(|c| c.is_ascii_digit());
                 Token::Number(s.to_string())
@@ -341,7 +352,7 @@ impl<'a> Lexer<'a> {
                     "include" => Token::Include,
                     "extern" | "external" => Token::Extern,
                     "let" => Token::Let,
-                    "letrec" => Token::LetRec,
+                    "letrec" | "rec" => Token::LetRec,
                     "fn" => Token::Fn,
                     "func" => Token::Func,
                     "fun" => Token::Fun,
@@ -355,6 +366,7 @@ impl<'a> Lexer<'a> {
                     "else" => Token::Else,
                     "match" => Token::Match,
                     "with" => Token::With,
+                    "in" => Token::In,
                     "when" => Token::When,
                     "as" => Token::As,
                     other => Token::Ident(other.to_string()),

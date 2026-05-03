@@ -102,4 +102,23 @@ Options:
 
 ### AwaML status
 
-AwaML is scaffolded in the codebase and can be parsed at a stub level, but lowering and code generation are not implemented yet.
+AwaML now has an active parse -> Core-IR -> AWASM pipeline with CLI output routing for:
+
+- `.ir` (Core-IR text)
+- `.awasm` (rendered AWASM text)
+- `.o` (assembled object bytes)
+
+The compiler is still evolving (type checking is stubbed and some lowering/codegen paths remain partial), but end-to-end compilation tests now cover examples including `examples/awaml/raylib.awaml`.
+
+Current supported subset includes:
+- float/char/awachar/awastring literal parsing
+- extern call lowering with typed ABI framing
+- operator-call lowering for arithmetic/comparisons (`+`/`-`/`*`/`/`/`eq`/`lt`/`gt`) into VM opcodes
+- module/type/functor shape lowering sufficient for current `raylib.awaml` scaffold compile path
+- minimal `if`/CFG lowering (both branches emitted) with conditional-skip idiom
+- tuple destructuring in `let` bindings
+- minimal `function`/`match` dispatch for constructor literals (needed for raylib’s `keycode_of_key`)
+
+For full compiler details, usage, tests, and limitations, see:
+
+- [src/compiler/README.md](src/compiler/README.md)

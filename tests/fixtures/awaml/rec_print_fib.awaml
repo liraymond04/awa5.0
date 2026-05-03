@@ -1,0 +1,16 @@
+let rec fib n =
+  if n == 0 then
+    0
+  else if n == 1 then
+    1
+  else
+    fib (n - 1) + fib (n - 2);;
+
+let rec print_seq i limit =
+  if i == limit then
+    ()
+  else
+    let _ = println (fib i) in
+    print_seq (i + 1) limit;;
+
+let main = print_seq 0 7;;

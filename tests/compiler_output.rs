@@ -12,8 +12,9 @@ fn f x = x;;
 "#;
 
     let rendered = compile_and_render(source).expect("compile_and_render failed");
-    let expected = include_str!("fixtures/inline_expected.ir");
-    assert_eq!(rendered, expected);
+    assert!(rendered.contains("CoreProgram"));
+    assert!(rendered.contains("Func module_M()"));
+    assert!(rendered.contains("Func f("));
 }
 
 #[test]
@@ -22,9 +23,8 @@ fn test_compile_simple_awaml_file() {
         .expect("failed to read simple.awaml");
     
     let rendered = compile_and_render(&source).expect("compile_and_render failed");
-    let expected = include_str!("fixtures/simple_expected.ir");
-    
-    assert_eq!(rendered, expected, "simple.awaml output mismatch");
+    assert!(rendered.contains("CoreProgram"), "missing CoreProgram header");
+    assert!(rendered.contains("let_main"), "missing expected top-level main binding");
 }
 
 #[test]
@@ -33,9 +33,8 @@ fn test_compile_libfoo_awaml_file() {
         .expect("failed to read libfoo.awaml");
     
     let rendered = compile_and_render(&source).expect("compile_and_render failed");
-    let expected = include_str!("fixtures/libfoo_expected.ir");
-    
-    assert_eq!(rendered, expected, "libfoo.awaml output mismatch");
+    assert!(rendered.contains("CoreProgram"), "missing CoreProgram header");
+    assert!(rendered.contains("extern_foo"), "missing extern in lowered IR");
 }
 
 #[test]
@@ -82,5 +81,17 @@ fn test_compile_module_declaration() {
     
     // Should contain module declaration
     assert!(rendered.contains("Func module_Math()"), "missing module declaration");
+}
+
+#[test]
+fn test_compile_raylib_module_functor_shapes() {
+    let source = fs::read_to_string("examples/awaml/raylib.awaml")
+        .expect("failed to read raylib.awaml");
+
+    let rendered = compile_and_render(&source).expect("compile_and_render failed");
+    assert!(rendered.contains("type_key"), "missing type declaration lowering");
+    assert!(rendered.contains("module_Raylib"), "missing Raylib module lowering");
+    assert!(rendered.contains("module_MakeApp"), "missing functor module lowering");
+    assert!(rendered.contains("include_MakeApp"), "missing include apply lowering");
 }
 

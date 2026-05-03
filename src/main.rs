@@ -166,17 +166,60 @@ fn main() {
             "awaml" => {
                 let content = fs::read_to_string(input_file).unwrap();
 
-                match compiler::compile_and_render(&content) {
-                    Ok(rendered) => {
-                        if matches.contains_id("output") {
-                            let output_file = matches.get_one::<String>("output").unwrap();
-                            let _ = write_string_file(output_file, &rendered);
-                        } else {
-                            println!("{}", rendered);
+                if matches.contains_id("output") {
+                    let output_file = matches.get_one::<String>("output").unwrap();
+                    let output_ext = Path::new(output_file)
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .unwrap_or("");
+
+                    match output_ext {
+                        "ir" => {
+                            // Compile to Core-IR and render as text
+                            match compiler::compile_and_render(&content) {
+                                Ok(rendered) => {
+                                    let _ = write_string_file(output_file, &rendered);
+                                }
+                                Err(err) => {
+                                    eprintln!("AwaML compile error: {err:?}");
+                                }
+                            }
+                        }
+                        "awasm" => {
+                            // Compile to AWASM text format
+                            match compiler::compile_and_render_awasm(&content) {
+                                Ok(rendered) => {
+                                    let _ = write_string_file(output_file, &rendered);
+                                }
+                                Err(err) => {
+                                    eprintln!("AwaML compile error: {err:?}");
+                                }
+                            }
+                        }
+                        "o" => {
+                            // Compile to binary object
+                            match compiler::compile_to_binary(&content) {
+                                Ok(binary) => {
+                                    let _ = write_object_file(output_file, binary);
+                                }
+                                Err(err) => {
+                                    eprintln!("AwaML compile error: {err:?}");
+                                }
+                            }
+                        }
+                        _ => {
+                            eprintln!("Unknown output format: {}. Use .ir, .awasm, or .o", output_ext);
                         }
                     }
-                    Err(err) => {
-                        eprintln!("AwaML compile error: {err:?}");
+                } else {
+                    // Default: show Core-IR rendering
+                    match compiler::compile_and_render(&content) {
+                        Ok(rendered) => {
+                            println!("{}", rendered);
+                        }
+                        Err(err) => {
+                            eprintln!("AwaML compile error: {err:?}");
+                        }
                     }
                 }
             }
@@ -316,17 +359,46 @@ fn main() {
         }
 
         if matches.get_flag("awaml") {
-            match compiler::compile_and_render(&input_string) {
-                Ok(rendered) => {
-                    if matches.contains_id("output") {
-                        let output_file = matches.get_one::<String>("output").unwrap();
-                        let _ = write_string_file(output_file, &rendered);
-                    } else {
-                        println!("{}", rendered);
+            if matches.contains_id("output") {
+                let output_file = matches.get_one::<String>("output").unwrap();
+                let output_ext = Path::new(output_file)
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .unwrap_or("");
+
+                match output_ext {
+                    "ir" => match compiler::compile_and_render(&input_string) {
+                        Ok(rendered) => {
+                            let _ = write_string_file(output_file, &rendered);
+                        }
+                        Err(err) => {
+                            eprintln!("AwaML compile error: {err:?}");
+                        }
+                    },
+                    "awasm" => match compiler::compile_and_render_awasm(&input_string) {
+                        Ok(rendered) => {
+                            let _ = write_string_file(output_file, &rendered);
+                        }
+                        Err(err) => {
+                            eprintln!("AwaML compile error: {err:?}");
+                        }
+                    },
+                    "o" => match compiler::compile_to_binary(&input_string) {
+                        Ok(binary) => {
+                            let _ = write_object_file(output_file, binary);
+                        }
+                        Err(err) => {
+                            eprintln!("AwaML compile error: {err:?}");
+                        }
+                    },
+                    _ => {
+                        eprintln!("Unknown output format: {}. Use .ir, .awasm, or .o", output_ext);
                     }
                 }
-                Err(err) => {
-                    eprintln!("AwaML compile error: {err:?}");
+            } else {
+                match compiler::compile_and_render(&input_string) {
+                    Ok(rendered) => println!("{}", rendered),
+                    Err(err) => eprintln!("AwaML compile error: {err:?}"),
                 }
             }
         }

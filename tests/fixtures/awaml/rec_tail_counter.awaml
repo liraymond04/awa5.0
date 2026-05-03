@@ -1,0 +1,4 @@
+let rec dec x =
+  if x == 0 then 1 else dec (x - 1);;
+
+let main = println (dec 3);;

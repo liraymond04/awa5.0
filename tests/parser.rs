@@ -234,3 +234,32 @@ fn test_malformed_match_reports_position() {
     assert!(err.position.is_some(), "expected an error position");
     assert!(err.message.contains("unexpected EOF") || err.message.contains("unexpected token"));
 }
+
+#[test]
+fn test_parse_awa_literals_and_float() {
+    let item = parse_item("let x = (a\"Hello\", a'W', 'a', 4.2)").expect("parse_item failed");
+    match item {
+        AstItem::LetDecl(ld) => match ld.value {
+            Expr::Tuple(items) => {
+                assert!(matches!(items[0], Expr::AwaString(_)));
+                assert!(matches!(items[1], Expr::AwaChar(_)));
+                assert!(matches!(items[2], Expr::Char(_)));
+                assert!(matches!(items[3], Expr::Float(_)));
+            }
+            other => panic!("expected tuple of literals, got {:?}", other),
+        },
+        other => panic!("expected LetDecl, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_parse_include_functor_apply() {
+    let prog = parse_program("include MakeApp(Raylib)").expect("parse_program failed");
+    assert_eq!(prog.items.len(), 1);
+    match &prog.items[0] {
+        AstItem::IncludeStmt(inc) => {
+            assert!(matches!(inc.module_expr, ModuleExpr::Apply { .. }));
+        }
+        other => panic!("expected IncludeStmt, got {:?}", other),
+    }
+}

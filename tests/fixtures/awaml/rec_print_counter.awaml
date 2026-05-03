@@ -1,0 +1,8 @@
+let rec loop i limit =
+  if i == limit then
+    ()
+  else
+    let _ = println i in
+    loop (i + 1) limit;;
+
+let main = loop 0 4;;

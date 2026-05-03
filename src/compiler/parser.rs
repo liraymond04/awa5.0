@@ -88,15 +88,16 @@ impl Parser {
         }
     }
 
-    fn expect_string(&mut self) -> ParseResult<String> {
-        match self.bump() {
-            Token::StringLit(s) => Ok(s),
-            other => Err(ParseError { message: format!("expected string literal, got {:?}", other), position: Some(self.pos.saturating_sub(1)) }),
-        }
-    }
+    // fn expect_string(&mut self) -> ParseResult<String> {
+    //     match self.bump() {
+    //         Token::StringLit(s) => Ok(s),
+    //         other => Err(ParseError { message: format!("expected string literal, got {:?}", other), position: Some(self.pos.saturating_sub(1)) }),
+    //     }
+    // }
 
     fn parse_item(&mut self) -> ParseResult<AstItem> {
         match self.peek() {
+            Token::Type => self.parse_type_decl_from_tokens(),
             Token::Module if self.peek_n(1) == &Token::Type => self.parse_module_type_decl_from_tokens(),
             Token::Module => self.parse_module_decl_from_tokens(),
             Token::Include => {
@@ -117,6 +118,20 @@ impl Parser {
                 Ok(AstItem::ModuleDecl(ModuleDecl { name: name.clone(), expr: ModuleExpr::Ident(name) }))
             }
         }
+    }
+
+    fn parse_type_decl_from_tokens(&mut self) -> ParseResult<AstItem> {
+        self.bump(); // type
+        let name = self.expect_ident()?;
+        // Minimal scaffold: accept alias/constructors syntax but do not fully decode yet.
+        while self.peek() != &Token::DoubleSemicolon && self.peek() != &Token::EOF {
+            self.bump();
+        }
+        Ok(AstItem::TypeDecl(TypeDecl {
+            name,
+            type_params: Vec::new(),
+            def: TypeDef::Alias(TypeRef::Named("unknown".to_string())),
+        }))
     }
 
     fn parse_module_decl_from_tokens(&mut self) -> ParseResult<AstItem> {
@@ -168,7 +183,8 @@ impl Parser {
                 if self.peek() == &Token::RParen { self.bump(); }
                 // skip arrow
                 if self.peek() == &Token::Arrow { self.bump(); }
-                let body = Box::new(ModuleExpr::Ident("__body".to_string()));
+                // Parse the functor body as a real module expr (commonly `struct ... end`).
+                let body = Box::new(self.parse_module_expr()?);
                 Ok(ModuleExpr::Functor { param_name, param_sig, body })
             }
             Token::Ident(_) => {
@@ -276,19 +292,41 @@ impl Parser {
         let first = self.bump();
         let mut is_rec = false;
         let name = match first {
-            Token::LetRec => { is_rec = true; self.expect_ident()? }
+            Token::LetRec => {
+                is_rec = true;
+                if let Token::Ident(_) = self.peek() {
+                    self.expect_ident()?
+                } else {
+                    "__let".to_string()
+                }
+            }
             Token::Let => {
                 // maybe next is 'rec' (we also accept explicit LetRec token above)
                 if self.peek() == &Token::LetRec { is_rec = true; self.bump(); }
-                self.expect_ident()?
+                if let Token::Ident(_) = self.peek() {
+                    self.expect_ident()?
+                } else {
+                    "__let".to_string()
+                }
             }
             _ => "__let".to_string(),
         };
-        // skip optional '=' and expression (stub: consume next token)
+        let mut params = Vec::new();
+        while self.peek() != &Token::Eq && self.peek() != &Token::EOF {
+            match self.peek() {
+                Token::Colon => {
+                    self.bump();
+                    let _ = self.parse_type_signature()?;
+                }
+                _ => {
+                    let pattern = self.parse_pattern()?;
+                    params.push(pattern);
+                }
+            }
+        }
         if self.peek() == &Token::Eq { self.bump(); }
-        // parse a full expression for the let value
         let value = self.parse_expr()?;
-        Ok(AstItem::LetDecl(LetDecl { name, is_rec, params: Vec::new(), ty: None, value }))
+        Ok(AstItem::LetDecl(LetDecl { name, is_rec, params, ty: None, value }))
     }
 
     fn parse_fn_decl_from_tokens(&mut self) -> ParseResult<AstItem> {
@@ -320,12 +358,45 @@ impl Parser {
 
     fn parse_expr(&mut self) -> ParseResult<Expr> {
         match self.peek() {
+            Token::Let | Token::LetRec => self.parse_let_in_expr(),
             Token::If => self.parse_if_expr(),
             Token::Fun => self.parse_fun_expr(),
             Token::Function => self.parse_function_expr(),
             Token::Match => self.parse_match_expr(),
             _ => self.parse_binary_expr(0),
         }
+    }
+
+    fn parse_let_in_expr(&mut self) -> ParseResult<Expr> {
+        let first = self.bump();
+        let mut is_rec = false;
+        if first == Token::LetRec {
+            is_rec = true;
+        }
+        if first == Token::Let && self.peek() == &Token::LetRec {
+            is_rec = true;
+            self.bump();
+        }
+
+        let pattern = self.parse_pattern()?;
+        while self.peek() != &Token::Eq && self.peek() != &Token::EOF {
+            self.bump();
+        }
+        if self.peek() == &Token::Eq {
+            self.bump();
+        }
+        let value = self.parse_expr()?;
+
+        if self.peek() != &Token::In {
+            return Ok(value);
+        }
+        self.bump(); // in
+        let body = self.parse_expr()?;
+        Ok(Expr::LetIn {
+            is_rec,
+            bindings: vec![LetBinding { pattern, value }],
+            body: Box::new(body),
+        })
     }
 
     fn parse_if_expr(&mut self) -> ParseResult<Expr> {
@@ -399,6 +470,20 @@ impl Parser {
                         },
                     };
                 }
+                Token::Ident(_) | Token::Number(_) | Token::StringLit(_) | Token::CharLit(_) => {
+                    let arg = self.parse_primary_expr()?;
+                    expr = match expr {
+                        Expr::Ident(name) => Expr::Call { callee: name, args: vec![arg] },
+                        Expr::Call { callee, mut args } => {
+                            args.push(arg);
+                            Expr::Call { callee, args }
+                        }
+                        other => Expr::Apply {
+                            callee: Box::new(other),
+                            args: vec![Arg { label: ParamLabel::Plain, value: arg }],
+                        },
+                    };
+                }
                 _ => break,
             }
         }
@@ -408,8 +493,17 @@ impl Parser {
 
     fn parse_primary_expr(&mut self) -> ParseResult<Expr> {
         match self.bump() {
-            Token::Number(s) => Ok(Expr::Int(s.parse().unwrap_or(0))),
+            Token::Number(s) => {
+                if self.peek() == &Token::Dot {
+                    self.bump();
+                    if let Token::Number(frac) = self.bump() {
+                        return Ok(Expr::Float(format!("{s}.{frac}")));
+                    }
+                }
+                Ok(Expr::Int(s.parse().unwrap_or(0)))
+            }
             Token::StringLit(s) => Ok(Expr::String(s)),
+            Token::CharLit(c) => Ok(Expr::Char(c)),
             Token::LParen => {
                 if self.peek() == &Token::RParen { self.bump(); return Ok(Expr::Unit); }
                 let first = self.parse_expr()?;
@@ -436,6 +530,21 @@ impl Parser {
                 Ok(Expr::List(items))
             }
             Token::Ident(name) => {
+                if name == "a" {
+                    match self.peek() {
+                        Token::StringLit(_) => {
+                            if let Token::StringLit(v) = self.bump() {
+                                return Ok(Expr::AwaString(v));
+                            }
+                        }
+                        Token::CharLit(_) => {
+                            if let Token::CharLit(v) = self.bump() {
+                                return Ok(Expr::AwaChar(v));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
                 if name == "true" {
                     Ok(Expr::Bool(true))
                 } else if name == "false" {
@@ -531,6 +640,12 @@ impl Parser {
                 } else {
                     let mut parts = Vec::new();
                     parts.push(self.parse_pattern()?);
+                    if self.peek() == &Token::Colon {
+                        self.bump();
+                        while self.peek() != &Token::RParen && self.peek() != &Token::EOF {
+                            self.bump();
+                        }
+                    }
                     while self.peek() == &Token::Comma {
                         self.bump();
                         parts.push(self.parse_pattern()?);
@@ -605,32 +720,32 @@ pub fn parse_type_ref(name: &str) -> ParseResult<TypeRef> {
     })
 }
 
-fn tokens_to_string(tokens: &[Token]) -> String {
-    let mut out = String::new();
-    for t in tokens {
-        match t {
-            Token::Ident(s) => { if !out.is_empty() { out.push(' '); } out.push_str(s); }
-            Token::Number(n) => { if !out.is_empty() { out.push(' '); } out.push_str(n); }
-            Token::StringLit(s) => { if !out.is_empty() { out.push(' '); } out.push('"'); out.push_str(s); out.push('"'); }
-            Token::LParen => { if !out.is_empty() { out.push(' '); } out.push('('); }
-            Token::RParen => { out.push(')'); }
-            Token::LBrace => { if !out.is_empty() { out.push(' '); } out.push('{'); }
-            Token::RBrace => { out.push('}'); }
-            Token::LBracket => { if !out.is_empty() { out.push(' '); } out.push('['); }
-            Token::RBracket => { out.push(']'); }
-            Token::Eq => { if !out.is_empty() { out.push(' '); } out.push('='); }
-            Token::Colon => { out.push(':'); }
-            Token::Comma => { out.push(','); }
-            Token::Dot => { out.push('.'); }
-            Token::Semicolon => { out.push(';'); }
-            Token::DoubleSemicolon => { out.push_str(";;"); }
-            Token::Arrow => { if !out.is_empty() { out.push(' '); } out.push_str("->"); }
-            Token::Module | Token::ModuleType | Token::Include | Token::Extern | Token::Let | Token::LetRec | Token::Fn | Token::Func | Token::Struct | Token::End | Token::Functor | Token::Sig | Token::Type | Token::If | Token::Then | Token::Else | Token::Match | Token::EOF => {}
-            _ => {}
-        }
-    }
-    out
-}
+// fn tokens_to_string(tokens: &[Token]) -> String {
+//     let mut out = String::new();
+//     for t in tokens {
+//         match t {
+//             Token::Ident(s) => { if !out.is_empty() { out.push(' '); } out.push_str(s); }
+//             Token::Number(n) => { if !out.is_empty() { out.push(' '); } out.push_str(n); }
+//             Token::StringLit(s) => { if !out.is_empty() { out.push(' '); } out.push('"'); out.push_str(s); out.push('"'); }
+//             Token::LParen => { if !out.is_empty() { out.push(' '); } out.push('('); }
+//             Token::RParen => { out.push(')'); }
+//             Token::LBrace => { if !out.is_empty() { out.push(' '); } out.push('{'); }
+//             Token::RBrace => { out.push('}'); }
+//             Token::LBracket => { if !out.is_empty() { out.push(' '); } out.push('['); }
+//             Token::RBracket => { out.push(']'); }
+//             Token::Eq => { if !out.is_empty() { out.push(' '); } out.push('='); }
+//             Token::Colon => { out.push(':'); }
+//             Token::Comma => { out.push(','); }
+//             Token::Dot => { out.push('.'); }
+//             Token::Semicolon => { out.push(';'); }
+//             Token::DoubleSemicolon => { out.push_str(";;"); }
+//             Token::Arrow => { if !out.is_empty() { out.push(' '); } out.push_str("->"); }
+//             Token::Module | Token::ModuleType | Token::Include | Token::Extern | Token::Let | Token::LetRec | Token::Fn | Token::Func | Token::Struct | Token::End | Token::Functor | Token::Sig | Token::Type | Token::If | Token::Then | Token::Else | Token::Match | Token::EOF => {}
+//             _ => {}
+//         }
+//     }
+//     out
+// }
 
 /// Parse a module declaration placeholder.
 /// Expected form (stub): `module NAME = <expr>`

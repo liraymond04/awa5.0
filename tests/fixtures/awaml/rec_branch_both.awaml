@@ -1,0 +1,9 @@
+let rec walk x y =
+  if x == 0 then
+    y
+  else if y == 0 then
+    walk(x - 1, y + 2)
+  else
+    walk(x - 1, y + 1);;
+
+let main = println (walk 2 0);;

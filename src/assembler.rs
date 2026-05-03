@@ -5,7 +5,7 @@ use crate::{Awatism, Instruction};
 pub fn assemble_awatism(instruction: &Instruction) -> Vec<u8> {
     match &instruction.awatism {
         Awatism::Nop => {
-            let bytes = vec![0x01, 0x00];
+            let bytes = vec![0x00, 0x00];
             bytes
         }
         Awatism::Prn => {

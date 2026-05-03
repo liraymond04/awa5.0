@@ -1,0 +1,6 @@
+let step x y =
+  let x1 = x + 1 in
+  let y1 = y + 2 in
+  x1 + y1;;
+
+let main = println (step 0 0);;

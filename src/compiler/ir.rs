@@ -305,6 +305,7 @@ pub enum TypedStmt {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CoreProgram {
+    pub extern_sigs: Vec<ExternSig>,
     pub functions: Vec<CoreFunc>,
 }
 
@@ -327,9 +328,32 @@ pub struct CoreBlock {
 pub enum CoreStmt {
     Let { dst: LocalId, value: CoreValue },
     Assign { dst: LocalId, value: CoreValue },
+    CallUser {
+        dst: Option<LocalId>,
+        callee: String,
+        args: Vec<LocalId>,
+    },
+    Print { src: LocalId, newline: bool },
     ExternCall { dst: Option<LocalId>, call: CoreExternCall },
+    OpBinary {
+        dst: LocalId,
+        op: CoreBinOp,
+        lhs: LocalId,
+        rhs: LocalId,
+    },
     ModuleDecl { name: String },
     IncludeModule { name: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoreBinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Eql,
+    Lss,
+    Gr8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -350,6 +374,7 @@ pub enum CoreValueKind {
     Local(LocalId),
     ModulePath(Vec<String>),
     ConstInt(i64),
+    ConstFloat(String),
     ConstBool(bool),
     ConstString(String),
 }
